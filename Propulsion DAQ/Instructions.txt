@@ -1,0 +1,13 @@
+Instructions:
+
+Main.ino uploads to the physical DAQ system (Teensy 4.1)
+    -Should be done already
+    -At this point I forget out to use it. Mainly I forget if I have it set to automatically collect data on power-up. Please check this (run it thru AI or something to understand what the code does)/
+    -Don't qoute me but im 80% sure that the switch was changed from a power switch to a logic switch such that Main.ino starts ouputing data to .csv after the switch is pressed
+    -YOU MUST CALIBRATE LOADCELL BEFORE EACH HOTFIRE
+
+Testing GUI is ran on computer with DAQ connected over USB, this is intended to assist in testing that the DAQ is functional and dialing in some settings (i.e., calibrating loadcell).
+    -THIS IS NOT MEANT TO COLLECT DATA FROM A REAL HOT-FIRE, Main.ino DOES THIS.
+    -The testing GUI has, itself, been tested very little. Expect to encounter issues and make improvements. The same can be said for Main.ino
+RocketMotorAnalyzer takes the resultant .csv file that Main.ino outputs (sample.csv shows what data is used and its format) and produces a professional .PDF report.
+    -Sample output report is also included
