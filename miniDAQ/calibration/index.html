@@ -14,17 +14,20 @@ Duration (seconds):
 
 <br><br>
 
-<button onclick="sendCommand('TARE')">TARE</button>
+<button onclick="tareSensors()">TARE</button>
 
 <canvas id="chart" width="800" height="400"></canvas>
 
 <script>
-var gateway = "ws://192.168.1.126:81/";
+var gateway = "ws://192.168.0.101:81/";
 var websocket = new WebSocket(gateway);
 
 let recording = false;
 let recordEndTime = 0;
 let recordedData = [];
+
+let offsets = [0,0,0,0];  // A1, A2, B1, B2
+let tared = false;
 
 const ctx = document.getElementById('chart').getContext('2d');
 
@@ -33,45 +36,20 @@ const chart = new Chart(ctx, {
   data: {
     labels: [],
     datasets: [
-      {
-        label: 'A1',
-        data: [],
-        borderColor: 'blue',
-        fill: false
-      },
-      {
-        label: 'A2',
-        data: [],
-        borderColor: 'red',
-        fill: false
-      },
-      {
-        label: 'B1',
-        data: [],
-        borderColor: 'green',
-        fill: false
-      },
-      {
-        label: 'B2',
-        data: [],
-        borderColor: 'orange',
-        fill: false
-      }
+      { label: 'A1', data: [], borderColor: 'blue', fill: false },
+      { label: 'A2', data: [], borderColor: 'red', fill: false },
+      { label: 'B1', data: [], borderColor: 'green', fill: false },
+      { label: 'B2', data: [], borderColor: 'orange', fill: false }
     ]
   },
   options: {
     animation: false,
     responsive: true,
-    scales: {
-      y: {
-        beginAtZero: false
-      }
-    }
+    scales: { y: { beginAtZero: false } }
   }
 });
 
 websocket.onmessage = function(event) {
-
   let data = JSON.parse(event.data);
 
   let time = data.time;
@@ -81,24 +59,29 @@ websocket.onmessage = function(event) {
   let s4 = data.B2;
 
   chart.data.labels.push(time);
-  chart.data.datasets[0].data.push(s1);
-  chart.data.datasets[1].data.push(s2);
-  chart.data.datasets[2].data.push(s3);
-  chart.data.datasets[3].data.push(s4);
+
+  if(tared) {
+    chart.data.datasets[0].data.push(s1 - offsets[0]);
+    chart.data.datasets[1].data.push(s2 - offsets[1]);
+    chart.data.datasets[2].data.push(s3 - offsets[2]);
+    chart.data.datasets[3].data.push(s4 - offsets[3]);
+  } else {
+    chart.data.datasets[0].data.push(s1);
+    chart.data.datasets[1].data.push(s2);
+    chart.data.datasets[2].data.push(s3);
+    chart.data.datasets[3].data.push(s4);
+  }
 
   if (chart.data.labels.length > 100) {
     chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-    chart.data.datasets[1].data.shift();
-    chart.data.datasets[2].data.shift();
-    chart.data.datasets[3].data.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
   }
 
   chart.update();
 
+  // Always store raw data for CSV
   if (recording) {
     recordedData.push([time, s1, s2, s3, s4]);
-
     if (Date.now() > recordEndTime) {
       recording = false;
       downloadCSV();
@@ -106,8 +89,15 @@ websocket.onmessage = function(event) {
   }
 };
 
-function sendCommand(cmd) {
-  websocket.send(cmd);
+function tareSensors() {
+  if (chart.data.datasets[0].data.length === 0) return; // No data yet
+  let lastIndex = chart.data.labels.length - 1;
+  offsets[0] = chart.data.datasets[0].data[lastIndex];
+  offsets[1] = chart.data.datasets[1].data[lastIndex];
+  offsets[2] = chart.data.datasets[2].data[lastIndex];
+  offsets[3] = chart.data.datasets[3].data[lastIndex];
+  tared = true;
+  console.log("Dashboard TARED", offsets);
 }
 
 function startRecording() {
@@ -118,21 +108,16 @@ function startRecording() {
 }
 
 function downloadCSV() {
-
   let csv = "Time(ms),A1,A2,B1,B2\n";
-
   recordedData.forEach(row => {
     csv += row.join(",") + "\n";
   });
-
   let blob = new Blob([csv], { type: "text/csv" });
   let url = URL.createObjectURL(blob);
-
   let a = document.createElement("a");
   a.href = url;
   a.download = "esp32_data.csv";
   a.click();
-
   URL.revokeObjectURL(url);
 }
 </script>
